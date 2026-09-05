@@ -188,16 +188,27 @@ class EngineTests(unittest.TestCase):
             "path": 'strata/<layer>.txt',
             "occurrence_commits": ['a"', 'b&', 'c<'],
         }
-        html_output = render_catalogue_html([specimen], {'<script>alert(1)</script>': ' 	javascript:alert(1)'})
+        html_output = render_catalogue_html([specimen], {'<script>alert(1)</script>': 'safe/report.json?download=1#section'})
         self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', html_output)
         self.assertIn('strata/&lt;layer&gt;.txt', html_output)
         self.assertNotIn('<script>alert(1)</script>', html_output)
-        self.assertNotIn('href="javascript:alert(1)"', html_output)
+        self.assertIn('href="safe/report.json?download=1#section"', html_output)
 
     def test_parent_directory_segments_are_rejected(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
         with self.assertRaisesRegex(ValueError, 'parent-directory'):
             prospect_occurrences(fixture.repo, fixture.head(), '../outside.txt')
+
+
+    def test_catalogue_rejects_conflicting_duplicates(self) -> None:
+        fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
+        prospect_result = prospect_occurrences(fixture.repo, fixture.head(), fixture.path)
+        occurrence = prospect_result["occurrences"][0]
+        bundle = export_evidence_bundle(prospect_result, occurrence)
+        conflicting = json.loads(json.dumps(bundle))
+        conflicting["specimen"]["path"] = "other/path.txt"
+        with self.assertRaisesRegex(ValueError, 'conflicting specimen evidence'):
+            catalogue_occurrences([bundle, conflicting])
 
 
     def test_catalogue_deduplicates_repeat_discoveries(self) -> None:

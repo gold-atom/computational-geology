@@ -344,8 +344,11 @@ def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]
     for bundle in bundles:
         specimen = bundle.get("specimen") or {}
         specimen_id = specimen.get("id")
-        if specimen_id and specimen_id not in catalogue:
-            catalogue[specimen_id] = specimen
+        if not specimen_id:
+            continue
+        if specimen_id in catalogue and catalogue[specimen_id] != specimen:
+            raise ValueError(f"conflicting specimen evidence for {specimen_id}")
+        catalogue.setdefault(specimen_id, specimen)
     return [catalogue[specimen_id] for specimen_id in sorted(catalogue)]
 
 
@@ -355,7 +358,7 @@ def _safe_catalogue_href(href: str) -> str | None:
     if any(ord(character) < 32 or ord(character) == 127 for character in href):
         return None
     parsed = urlsplit(href)
-    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+    if parsed.scheme or parsed.netloc:
         return None
     pure_path = PurePosixPath(parsed.path)
     if pure_path.is_absolute() or ".." in pure_path.parts:
@@ -363,7 +366,12 @@ def _safe_catalogue_href(href: str) -> str | None:
     normalized = pure_path.as_posix()
     if normalized in {"", "."} or normalized != parsed.path:
         return None
-    return normalized
+    suffix = ""
+    if parsed.query:
+        suffix += f"?{parsed.query}"
+    if parsed.fragment:
+        suffix += f"#{parsed.fragment}"
+    return normalized + suffix
 
 
 def render_catalogue_html(specimens: list[dict[str, Any]], evidence_links: dict[str, str] | None = None) -> str:
