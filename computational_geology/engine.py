@@ -171,6 +171,13 @@ def _blob_at_path(repository: Path, commit: str, path: str) -> str | None:
     return object_id
 
 
+def _read_object_type(repository: Path, object_id: str) -> str | None:
+    object_type = _run_git(repository, "cat-file", "-t", object_id, check=False)
+    if object_type.returncode != 0:
+        return None
+    return object_type.stdout.decode("utf-8").strip()
+
+
 def _compress_run_segments(context: ProspectContext) -> list[list[Run]]:
     segments: list[list[Run]] = []
     current_segment: list[Run] = []
@@ -275,6 +282,7 @@ def _validate_bundle_shape(bundle: dict[str, Any]) -> list[str]:
 
 
 def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
+    repository_path = Path(repository)
     errors = _validate_bundle_shape(bundle)
     if errors:
         return {"status": ASSAY_CONTRADICTED, "reasons": errors}
@@ -313,7 +321,7 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["declared source path does not match specimen path"]}
 
     try:
-        prospect_result = prospect_occurrences(repository, pinned_commit, path)
+        prospect_result = prospect_occurrences(repository_path, pinned_commit, path)
     except GitInspectionError as error:
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [str(error)]}
     except ValueError as error:
@@ -326,6 +334,12 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
         if prospect_result.get("missing_parent"):
             reason = f"missing first-parent commit object: {prospect_result['missing_parent']}"
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [reason]}
+    for blob_id in specimen["blob_ids"]:
+        object_type = _read_object_type(repository_path, blob_id)
+        if object_type is None:
+            return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [f"missing required blob object: {blob_id}"]}
+        if object_type != "blob":
+            return {"status": ASSAY_CONTRADICTED, "reasons": [f"required object is not a blob: {blob_id} ({object_type})"]}
 
     for occurrence in prospect_result["occurrences"]:
         if occurrence["id"] == specimen["id"]:

@@ -30,7 +30,13 @@ class SyntheticGitFixture:
         self._git("config", "user.email", "synthetic@example.invalid")
         self.commit_index = 0
 
-    def _git(self, *args: str, env: dict[str, str] | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def _git(
+        self,
+        *args: str,
+        env: dict[str, str] | None = None,
+        check: bool = True,
+        input: str | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         merged_env = os.environ.copy()
         if env:
             merged_env.update(env)
@@ -41,6 +47,7 @@ class SyntheticGitFixture:
             stderr=subprocess.PIPE,
             text=True,
             env=merged_env,
+            input=input,
         )
 
     def commit_state(self, content: str | None, message: str) -> str:
@@ -82,6 +89,25 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(result["occurrences"])
         occurrence = result["occurrences"][0]
         return result, export_evidence_bundle(result, occurrence)
+
+    def _loose_object_path(self, repository: Path, object_id: str) -> Path:
+        return repository / ".git" / "objects" / object_id[:2] / object_id[2:]
+
+    def _cat_file_exists(self, repository: Path, object_id: str, expected_type: str) -> bool:
+        result = subprocess.run(
+            ["git", "-C", str(repository), "cat-file", "-e", f"{object_id}^{{{expected_type}}}"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return result.returncode == 0
+
+    def _assert_isolated_object_store(self, repository: Path) -> None:
+        alternates = repository / ".git" / "objects" / "info" / "alternates"
+        self.assertFalse(alternates.exists())
+        packs = list((repository / ".git" / "objects" / "pack").glob("*.pack"))
+        self.assertEqual(packs, [])
 
     def test_aba_yields_one_specimen(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
@@ -181,6 +207,34 @@ class EngineTests(unittest.TestCase):
         _, bundle = self._bundle_from_fixture(fixture)
         result = run_assay(fixture.repo, bundle)
         self.assertEqual(result["status"], ASSAY_VERIFIED)
+
+    def test_assay_is_insufficient_when_required_blob_object_is_missing(self) -> None:
+        fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
+        _, bundle = self._bundle_from_fixture(fixture)
+        self._assert_isolated_object_store(fixture.repo)
+
+        initial_result = run_assay(fixture.repo, bundle)
+        self.assertEqual(initial_result["status"], ASSAY_VERIFIED)
+
+        for index, position in enumerate(["first", "middle", "third"]):
+            with self.subTest(bound_blob=position):
+                missing_blob_id = bundle["specimen"]["blob_ids"][index]
+                blob_body = fixture._git("cat-file", "-p", missing_blob_id).stdout
+                loose_object = self._loose_object_path(fixture.repo, missing_blob_id)
+                self.assertTrue(loose_object.exists())
+
+                loose_object.unlink()
+                self.assertFalse(self._cat_file_exists(fixture.repo, missing_blob_id, "blob"))
+
+                missing_result = run_assay(fixture.repo, bundle)
+                self.assertEqual(missing_result["status"], ASSAY_INSUFFICIENT_EVIDENCE)
+
+                restored_oid = fixture._git("hash-object", "-t", "blob", "-w", "--stdin", input=blob_body).stdout.strip()
+                self.assertEqual(restored_oid, missing_blob_id)
+                self.assertTrue(self._cat_file_exists(fixture.repo, missing_blob_id, "blob"))
+
+                restored_result = run_assay(fixture.repo, bundle)
+                self.assertEqual(restored_result["status"], ASSAY_VERIFIED)
 
     def test_catalogue_html_escapes_dynamic_values(self) -> None:
         specimen = {
