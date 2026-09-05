@@ -15,6 +15,7 @@ from computational_geology.engine import (
     catalogue_occurrences,
     export_evidence_bundle,
     prospect_occurrences,
+    render_catalogue_html,
     run_assay,
 )
 
@@ -172,6 +173,24 @@ class EngineTests(unittest.TestCase):
         _, bundle = self._bundle_from_fixture(fixture)
         result = run_assay(fixture.repo, bundle)
         self.assertEqual(result["status"], ASSAY_VERIFIED)
+
+    def test_catalogue_html_escapes_dynamic_values(self) -> None:
+        specimen = {
+            "id": '<script>alert(1)</script>',
+            "path": 'strata/<layer>.txt',
+            "occurrence_commits": ['a"', 'b&', 'c<'],
+        }
+        html_output = render_catalogue_html([specimen], {'<script>alert(1)</script>': 'javascript:alert(1)'})
+        self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', html_output)
+        self.assertIn('strata/&lt;layer&gt;.txt', html_output)
+        self.assertNotIn('<script>alert(1)</script>', html_output)
+        self.assertNotIn('href="javascript:alert(1)"', html_output)
+
+    def test_parent_directory_segments_are_rejected(self) -> None:
+        fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
+        with self.assertRaisesRegex(ValueError, 'parent-directory'):
+            prospect_occurrences(fixture.repo, fixture.head(), '../outside.txt')
+
 
     def test_catalogue_deduplicates_repeat_discoveries(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])

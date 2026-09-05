@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import urlsplit
 
 PROFILE_ID = "git-state-return/v1"
 PROFILE_SUMMARY = (
@@ -102,8 +104,14 @@ def _git_object_hash(repository: Path) -> str:
 
 
 def _require_relative_path(path: str) -> None:
-    if not path or path.startswith("/"):
+    pure_path = PurePosixPath(path)
+    if not path or pure_path.is_absolute():
         raise ValueError("path must be a non-empty repository-relative path")
+    if ".." in pure_path.parts:
+        raise ValueError("path must not contain parent-directory segments")
+    normalized = pure_path.as_posix()
+    if normalized in {"", "."} or normalized != path:
+        raise ValueError("path must use a normalized repository-relative form")
 
 
 def _load_context(repository: str | Path, pinned_commit: str, path: str) -> ProspectContext:
@@ -326,6 +334,15 @@ def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]
     return [catalogue[specimen_id] for specimen_id in sorted(catalogue)]
 
 
+def _safe_catalogue_href(href: str) -> str | None:
+    parsed = urlsplit(href)
+    if parsed.scheme or parsed.netloc:
+        return None
+    if any(character in href for character in ("\r", "\n", "\t")):
+        return None
+    return href
+
+
 def render_catalogue_html(specimens: list[dict[str, Any]], evidence_links: dict[str, str] | None = None) -> str:
     evidence_links = evidence_links or {}
     lines = [
@@ -342,10 +359,15 @@ def render_catalogue_html(specimens: list[dict[str, Any]], evidence_links: dict[
     ]
     for specimen in specimens:
         evidence_link = evidence_links.get(specimen["id"])
-        description = f"{specimen['path']} :: {' → '.join(specimen['occurrence_commits'])}"
-        if evidence_link:
-            lines.append(f"    <li><a href=\"{evidence_link}\">{specimen['id']}</a><br>{description}</li>")
+        safe_href = _safe_catalogue_href(evidence_link) if evidence_link else None
+        identifier = html.escape(specimen["id"], quote=True)
+        description = html.escape(
+            f"{specimen['path']} :: {' → '.join(specimen['occurrence_commits'])}", quote=True
+        )
+        if safe_href:
+            href = html.escape(safe_href, quote=True)
+            lines.append(f"    <li><a href=\"{href}\">{identifier}</a><br>{description}</li>")
         else:
-            lines.append(f"    <li>{specimen['id']}<br>{description}</li>")
+            lines.append(f"    <li>{identifier}<br>{description}</li>")
     lines.extend(["  </ul>", "</body>", "</html>"])
     return "\n".join(lines) + "\n"
