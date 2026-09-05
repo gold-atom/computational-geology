@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .engine import (
     ASSAY_CONTRADICTED,
+    ASSAY_VERIFIED,
     catalogue_occurrences,
     export_evidence_bundle,
     prospect_occurrences,
@@ -47,7 +48,7 @@ def _cmd_assay(args: argparse.Namespace) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
     if result["status"] == ASSAY_CONTRADICTED:
         return 1
-    if result["status"] != "VERIFIED WITHIN DECLARED SCOPE":
+    if result["status"] != ASSAY_VERIFIED:
         return 2
     return 0
 
