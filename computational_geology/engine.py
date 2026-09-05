@@ -334,6 +334,24 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
         if prospect_result.get("missing_parent"):
             reason = f"missing first-parent commit object: {prospect_result['missing_parent']}"
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [reason]}
+    for occurrence_commit, blob_id in zip(specimen["occurrence_commits"], specimen["blob_ids"]):
+        commit_check = _run_git(repository_path, "cat-file", "-e", f"{occurrence_commit}^{{commit}}", check=False)
+        if commit_check.returncode != 0:
+            return {
+                "status": ASSAY_INSUFFICIENT_EVIDENCE,
+                "reasons": [f"missing required occurrence commit object: {occurrence_commit}"],
+            }
+        observed_blob_id = _blob_at_path(repository_path, occurrence_commit, path)
+        if observed_blob_id is None:
+            return {
+                "status": ASSAY_CONTRADICTED,
+                "reasons": [f"declared occurrence does not bind an ordinary file blob: {occurrence_commit} {path}"],
+            }
+        if observed_blob_id != blob_id:
+            return {
+                "status": ASSAY_CONTRADICTED,
+                "reasons": [f"declared blob does not match commit/path binding: {occurrence_commit}"],
+            }
     for blob_id in specimen["blob_ids"]:
         object_type = _read_object_type(repository_path, blob_id)
         if object_type is None:
