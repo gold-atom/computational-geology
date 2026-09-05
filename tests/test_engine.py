@@ -180,7 +180,7 @@ class EngineTests(unittest.TestCase):
             "path": 'strata/<layer>.txt',
             "occurrence_commits": ['a"', 'b&', 'c<'],
         }
-        html_output = render_catalogue_html([specimen], {'<script>alert(1)</script>': 'javascript:alert(1)'})
+        html_output = render_catalogue_html([specimen], {'<script>alert(1)</script>': ' 	javascript:alert(1)'})
         self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', html_output)
         self.assertIn('strata/&lt;layer&gt;.txt', html_output)
         self.assertNotIn('<script>alert(1)</script>', html_output)

@@ -103,6 +103,14 @@ def _git_object_hash(repository: Path) -> str:
     return _run_git(repository, "rev-parse", "--show-object-format").stdout.decode("utf-8").strip()
 
 
+def _first_parent(repository: Path, commit: str) -> str | None:
+    commit_body = _run_git(repository, "cat-file", "-p", commit).stdout.decode("utf-8")
+    for line in commit_body.splitlines():
+        if line.startswith("parent "):
+            return line.split()[1]
+    return None
+
+
 def _require_relative_path(path: str) -> None:
     pure_path = PurePosixPath(path)
     if not path or pure_path.is_absolute():
@@ -124,15 +132,21 @@ def _load_context(repository: str | Path, pinned_commit: str, path: str) -> Pros
     commits = tuple(line for line in commits_output.decode("utf-8").splitlines() if line)
     if not commits:
         raise GitInspectionError(f"pinned commit is not reachable: {pinned_commit}")
-    first_commit = commits[0]
-    commit_body = _run_git(repo_path, "cat-file", "-p", first_commit).stdout.decode("utf-8")
     missing_parent = None
     ancestry_complete = True
-    for line in commit_body.splitlines():
-        if line.startswith("parent "):
-            missing_parent = line.split()[1]
+    previous_commit = None
+    for commit in commits:
+        first_parent = _first_parent(repo_path, commit)
+        if previous_commit is None:
+            if first_parent is not None:
+                missing_parent = first_parent
+                ancestry_complete = False
+                break
+        elif first_parent != previous_commit:
+            missing_parent = first_parent or previous_commit
             ancestry_complete = False
             break
+        previous_commit = commit
     return ProspectContext(
         repository=repo_path,
         pinned_commit=pinned_commit,
@@ -335,12 +349,20 @@ def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def _safe_catalogue_href(href: str) -> str | None:
+    if not href or href != href.strip(" \t\r\n\f\v"):
+        return None
+    if any(ord(character) < 32 or ord(character) == 127 for character in href):
+        return None
     parsed = urlsplit(href)
-    if parsed.scheme or parsed.netloc:
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
         return None
-    if any(character in href for character in ("\r", "\n", "\t")):
+    pure_path = PurePosixPath(parsed.path)
+    if pure_path.is_absolute() or ".." in pure_path.parts:
         return None
-    return href
+    normalized = pure_path.as_posix()
+    if normalized in {"", "."} or normalized != parsed.path:
+        return None
+    return normalized
 
 
 def render_catalogue_html(specimens: list[dict[str, Any]], evidence_links: dict[str, str] | None = None) -> str:
