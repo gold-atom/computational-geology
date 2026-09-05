@@ -109,6 +109,11 @@ class EngineTests(unittest.TestCase):
         packs = list((repository / ".git" / "objects" / "pack").glob("*.pack"))
         self.assertEqual(packs, [])
 
+    def _replace_loose_object(self, repository: Path, object_id: str, content: bytes) -> None:
+        loose_object = self._loose_object_path(repository, object_id)
+        os.chmod(loose_object, 0o600)
+        loose_object.write_bytes(content)
+
     def test_aba_yields_one_specimen(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
         result = prospect_occurrences(fixture.repo, fixture.head(), fixture.path)
@@ -212,13 +217,18 @@ class EngineTests(unittest.TestCase):
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
         _, bundle = self._bundle_from_fixture(fixture)
         self._assert_isolated_object_store(fixture.repo)
+        shared_a_blob_id = bundle["specimen"]["blob_ids"][0]
+        self.assertEqual(shared_a_blob_id, bundle["specimen"]["blob_ids"][2])
+        unique_required_blobs = [
+            ("middle-b", bundle["specimen"]["blob_ids"][1]),
+            ("returning-a", shared_a_blob_id),
+        ]
 
         initial_result = run_assay(fixture.repo, bundle)
         self.assertEqual(initial_result["status"], ASSAY_VERIFIED)
 
-        for index, position in enumerate(["first", "middle", "third"]):
-            with self.subTest(bound_blob=position):
-                missing_blob_id = bundle["specimen"]["blob_ids"][index]
+        for bound_blob, missing_blob_id in unique_required_blobs:
+            with self.subTest(bound_blob=bound_blob):
                 blob_body = fixture._git("cat-file", "-p", missing_blob_id).stdout
                 loose_object = self._loose_object_path(fixture.repo, missing_blob_id)
                 self.assertTrue(loose_object.exists())
@@ -233,6 +243,38 @@ class EngineTests(unittest.TestCase):
                 self.assertEqual(restored_oid, missing_blob_id)
                 self.assertTrue(self._cat_file_exists(fixture.repo, missing_blob_id, "blob"))
 
+                restored_result = run_assay(fixture.repo, bundle)
+                self.assertEqual(restored_result["status"], ASSAY_VERIFIED)
+
+    def test_assay_contradicts_when_required_blob_bytes_do_not_match_identity(self) -> None:
+        fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
+        _, bundle = self._bundle_from_fixture(fixture)
+        self._assert_isolated_object_store(fixture.repo)
+        shared_a_blob_id = bundle["specimen"]["blob_ids"][0]
+        self.assertEqual(shared_a_blob_id, bundle["specimen"]["blob_ids"][2])
+        unique_required_blobs = [
+            ("middle-b", bundle["specimen"]["blob_ids"][1]),
+            ("returning-a", shared_a_blob_id),
+        ]
+
+        initial_result = run_assay(fixture.repo, bundle)
+        self.assertEqual(initial_result["status"], ASSAY_VERIFIED)
+
+        forged_loose_object = fixture._git("hash-object", "-t", "blob", "--stdin", input="X\n").stdout.strip()
+        self.assertNotIn(forged_loose_object, bundle["specimen"]["blob_ids"])
+        forged_object_bytes = zlib.compress(b"blob 2\0X\n")
+
+        for bound_blob, target_blob_id in unique_required_blobs:
+            with self.subTest(bound_blob=bound_blob):
+                original_object_bytes = self._loose_object_path(fixture.repo, target_blob_id).read_bytes()
+                self._replace_loose_object(fixture.repo, target_blob_id, forged_object_bytes)
+                self.assertTrue(self._cat_file_exists(fixture.repo, target_blob_id, "blob"))
+                self.assertEqual(fixture._git("cat-file", "-p", target_blob_id).stdout, "X\n")
+
+                contradicted_result = run_assay(fixture.repo, bundle)
+                self.assertEqual(contradicted_result["status"], ASSAY_CONTRADICTED)
+
+                self._replace_loose_object(fixture.repo, target_blob_id, original_object_bytes)
                 restored_result = run_assay(fixture.repo, bundle)
                 self.assertEqual(restored_result["status"], ASSAY_VERIFIED)
 
