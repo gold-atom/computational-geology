@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 from computational_geology.engine import (
@@ -268,7 +269,7 @@ class EngineTests(unittest.TestCase):
             with self.subTest(bound_blob=bound_blob):
                 original_object_bytes = self._loose_object_path(fixture.repo, target_blob_id).read_bytes()
                 self._replace_loose_object(fixture.repo, target_blob_id, forged_object_bytes)
-                self.assertTrue(self._cat_file_exists(fixture.repo, target_blob_id, "blob"))
+                self.assertEqual(fixture._git("cat-file", "-t", target_blob_id).stdout.strip(), "blob")
                 self.assertEqual(fixture._git("cat-file", "-p", target_blob_id).stdout, "X\n")
 
                 contradicted_result = run_assay(fixture.repo, bundle)

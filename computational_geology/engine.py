@@ -178,6 +178,20 @@ def _read_object_type(repository: Path, object_id: str) -> str | None:
     return object_type.stdout.decode("utf-8").strip()
 
 
+def _read_object_bytes(repository: Path, object_type: str, object_id: str) -> bytes | None:
+    object_data = _run_git(repository, "cat-file", object_type, object_id, check=False)
+    if object_data.returncode != 0:
+        return None
+    return object_data.stdout
+
+
+def _object_id_for_bytes(object_type: str, content: bytes, hash_name: str) -> str:
+    digest = hashlib.new(hash_name)
+    digest.update(f"{object_type} {len(content)}\0".encode("ascii"))
+    digest.update(content)
+    return digest.hexdigest()
+
+
 def _compress_run_segments(context: ProspectContext) -> list[list[Run]]:
     segments: list[list[Run]] = []
     current_segment: list[Run] = []
@@ -352,12 +366,20 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
                 "status": ASSAY_CONTRADICTED,
                 "reasons": [f"declared blob does not match commit/path binding: {occurrence_commit}"],
             }
-    for blob_id in specimen["blob_ids"]:
+    for blob_id in dict.fromkeys(specimen["blob_ids"]):
         object_type = _read_object_type(repository_path, blob_id)
         if object_type is None:
             return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [f"missing required blob object: {blob_id}"]}
         if object_type != "blob":
             return {"status": ASSAY_CONTRADICTED, "reasons": [f"required object is not a blob: {blob_id} ({object_type})"]}
+        object_bytes = _read_object_bytes(repository_path, object_type, blob_id)
+        if object_bytes is None:
+            return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [f"missing required blob bytes: {blob_id}"]}
+        if _object_id_for_bytes(object_type, object_bytes, prospect_result["git_object_hash"]) != blob_id:
+            return {
+                "status": ASSAY_CONTRADICTED,
+                "reasons": [f"required blob bytes do not match object identity: {blob_id}"],
+            }
 
     for occurrence in prospect_result["occurrences"]:
         if occurrence["id"] == specimen["id"]:
