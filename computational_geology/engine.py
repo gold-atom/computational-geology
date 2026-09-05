@@ -128,25 +128,24 @@ def _load_context(repository: str | Path, pinned_commit: str, path: str) -> Pros
     commit_check = _run_git(repo_path, "cat-file", "-e", f"{pinned_commit}^{{commit}}", check=False)
     if commit_check.returncode != 0:
         raise GitInspectionError(f"missing pinned commit object: {pinned_commit}")
-    commits_output = _run_git(repo_path, "rev-list", "--first-parent", "--reverse", pinned_commit).stdout
-    commits = tuple(line for line in commits_output.decode("utf-8").splitlines() if line)
-    if not commits:
-        raise GitInspectionError(f"pinned commit is not reachable: {pinned_commit}")
+
+    walked_commits: list[str] = []
+    current_commit = pinned_commit
     missing_parent = None
     ancestry_complete = True
-    previous_commit = None
-    for commit in commits:
-        first_parent = _first_parent(repo_path, commit)
-        if previous_commit is None:
-            if first_parent is not None:
-                missing_parent = first_parent
-                ancestry_complete = False
-                break
-        elif first_parent != previous_commit:
-            missing_parent = first_parent or previous_commit
+    while True:
+        walked_commits.append(current_commit)
+        first_parent = _first_parent(repo_path, current_commit)
+        if first_parent is None:
+            break
+        parent_check = _run_git(repo_path, "cat-file", "-e", f"{first_parent}^{{commit}}", check=False)
+        if parent_check.returncode != 0:
+            missing_parent = first_parent
             ancestry_complete = False
             break
-        previous_commit = commit
+        current_commit = first_parent
+
+    commits = tuple(reversed(walked_commits))
     return ProspectContext(
         repository=repo_path,
         pinned_commit=pinned_commit,
@@ -154,7 +153,7 @@ def _load_context(repository: str | Path, pinned_commit: str, path: str) -> Pros
         git_object_hash=_git_object_hash(repo_path),
         commits=commits,
         ancestry_complete=ancestry_complete,
-        missing_parent=missing_parent if not ancestry_complete else None,
+        missing_parent=missing_parent,
     )
 
 
@@ -280,8 +279,10 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
     if errors:
         return {"status": ASSAY_CONTRADICTED, "reasons": errors}
 
-    integrity = ((bundle.get("integrity") or {}).get("canonical_bundle_sha256"))
-    if integrity and integrity != _bundle_integrity_sha256(bundle):
+    integrity = (bundle.get("integrity") or {}).get("canonical_bundle_sha256")
+    if not integrity:
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["missing evidence integrity digest"]}
+    if integrity != _bundle_integrity_sha256(bundle):
         return {"status": ASSAY_CONTRADICTED, "reasons": ["evidence integrity digest mismatch"]}
 
     specimen = bundle["specimen"]

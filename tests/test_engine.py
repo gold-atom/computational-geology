@@ -168,6 +168,14 @@ class EngineTests(unittest.TestCase):
         result = run_assay(fixture.repo, forged)
         self.assertEqual(result["status"], ASSAY_CONTRADICTED)
 
+    def test_missing_integrity_digest_is_rejected(self) -> None:
+        fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
+        _, bundle = self._bundle_from_fixture(fixture)
+        bundle.pop("integrity")
+        result = run_assay(fixture.repo, bundle)
+        self.assertEqual(result["status"], ASSAY_CONTRADICTED)
+
+
     def test_valid_assay_verifies_against_declared_scope(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
         _, bundle = self._bundle_from_fixture(fixture)
