@@ -341,13 +341,25 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
 
 def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     catalogue: dict[str, dict[str, Any]] = {}
+    bundle_signatures: dict[str, bytes] = {}
+    required_fields = {"id", "path", "occurrence_commits"}
     for bundle in bundles:
         specimen = bundle.get("specimen") or {}
         specimen_id = specimen.get("id")
         if not specimen_id:
             continue
-        if specimen_id in catalogue and catalogue[specimen_id] != specimen:
+        missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
+        if missing_fields:
+            raise ValueError(f"malformed catalogue specimen {specimen_id}: missing {', '.join(missing_fields)}")
+        if len(specimen.get("occurrence_commits", [])) != 3:
+            raise ValueError(f"malformed catalogue specimen {specimen_id}: expected three occurrence commits")
+        signature = _canonical_json({
+            "payload": _known_evidence_payload(bundle),
+            "integrity": (bundle.get("integrity") or {}).get("canonical_bundle_sha256"),
+        })
+        if specimen_id in bundle_signatures and bundle_signatures[specimen_id] != signature:
             raise ValueError(f"conflicting specimen evidence for {specimen_id}")
+        bundle_signatures.setdefault(specimen_id, signature)
         catalogue.setdefault(specimen_id, specimen)
     return [catalogue[specimen_id] for specimen_id in sorted(catalogue)]
 

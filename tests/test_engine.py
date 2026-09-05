@@ -211,6 +211,11 @@ class EngineTests(unittest.TestCase):
             catalogue_occurrences([bundle, conflicting])
 
 
+    def test_catalogue_rejects_malformed_specimens(self) -> None:
+        with self.assertRaisesRegex(ValueError, 'malformed catalogue specimen'):
+            catalogue_occurrences([{"specimen": {"id": "broken"}}])
+
+
     def test_catalogue_deduplicates_repeat_discoveries(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
         prospect_result = prospect_occurrences(fixture.repo, fixture.head(), fixture.path)
