@@ -1,0 +1,48 @@
+{
+  "declared_coverage": {
+    "ancestry_order": "oldest-to-newest first-parent ancestry ending at the pinned commit",
+    "missing_path_breaks_sequence": true,
+    "ordinary_file_modes": [
+      "100644",
+      "100755"
+    ],
+    "path_match": "exact repository-relative path",
+    "rename_heuristics": false,
+    "second_parents": false,
+    "unsupported_entry_breaks_sequence": true
+  },
+  "declared_source": {
+    "first_parent_only": true,
+    "kind": "git-local-repository",
+    "path": "strata/specimen.txt",
+    "pinned_commit": "ff7e72223fd62a26c1f1e906b67dc5e3dd672649"
+  },
+  "evidence_version": "computational-geology-evidence/v1",
+  "external_witnesses": [],
+  "formation_rule": {
+    "id": "git-state-return/v1",
+    "summary": "Three consecutive first-parent runs for one repository-relative path with blob labels A->B->A, where A and B differ.",
+    "version": 1
+  },
+  "integrity": {
+    "canonical_bundle_sha256": "82a47be8e8ad0563c3f2b75b1346c955a50e7679c399073740aae23148c746f6"
+  },
+  "specimen": {
+    "blob_ids": [
+      "180a6afd4c944f9399a1abc36d79a541d83183c7",
+      "180a6afd4c944f9399a1abc36d79a541d83183c7",
+      "180a6afd4c944f9399a1abc36d79a541d83183c7"
+    ],
+    "git_object_hash": "sha1",
+    "id": "cg-specimen-v1-sha256:9bdc80ff64e26426c273b215b8d861e7fa6d65fac61edd6aaef5eb1033ba22bf",
+    "occurrence_commits": [
+      "0aa19785de85f966a193655d95c054a64ee37ed1",
+      "0254e742c8c4e87e4d6164325e556654f4ab9f12",
+      "ff7e72223fd62a26c1f1e906b67dc5e3dd672649"
+    ],
+    "path": "strata/specimen.txt",
+    "path_utf8_hex": "7374726174612f73706563696d656e2e747874",
+    "rule": "git-state-return/v1"
+  },
+  "verified": true
+}

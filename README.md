@@ -100,6 +100,9 @@ GoldAtom/0's public repository describes a verifier-first proof-object prototype
 | [`research/OPEN_PROBLEMS.md`](research/OPEN_PROBLEMS.md) | Strongest unresolved theoretical and empirical questions |
 | [`research/GOLDATOM_RELATIONSHIP.md`](research/GOLDATOM_RELATIONSHIP.md) | Scope boundary with GoldAtom |
 | [`examples/BOUNDED_FORMATION.md`](examples/BOUNDED_FORMATION.md) | Worked research construction and counterexamples |
+| [`profiles/GIT_STATE_RETURN_V1.md`](profiles/GIT_STATE_RETURN_V1.md) | Precise first executable formation rule for exact-content Git state return |
+| [`computational_geology/`](computational_geology) | Read-only Python library and CLI for prospecting, assay, and catalogue generation |
+| [`tests/test_engine.py`](tests/test_engine.py) | Deterministic synthetic fixtures and executable rule checks |
 
 ## Research discipline
 
@@ -120,3 +123,60 @@ Negative results are first-class outputs. If a construction reduces to “hash u
 ## Primary technical sources
 
 The Urbit analysis relies primarily on the official documentation and source repositories for [Arvo](https://docs.urbit.org/urbit-os/kernel/arvo), [Clay](https://docs.urbit.org/urbit-os/kernel/clay/architecture), [Ames](https://docs.urbit.org/urbit-os/kernel/ames), [Urbit ID](https://docs.urbit.org/urbit-id/what-is-urbit-id), and [Azimuth](https://github.com/urbit/azimuth). Bitcoin claims are bounded by the [Bitcoin white paper](https://bitcoin.org/bitcoin.pdf), the [Bitcoin developer block-header reference](https://developer.bitcoin.org/reference/block_chain.html), and Bitcoin Core behavior. Commitment/log comparisons use [RFC 9162 Certificate Transparency](https://www.rfc-editor.org/rfc/rfc9162.html), which is instructive precisely because an append-only Merkle commitment still requires consistency, monitoring, and availability assumptions.
+
+## Executable prototype: Git state-return profile
+
+This repository now includes a deliberately narrow executable prototype for **exact-content return in Git history**. The precise rule is specified in [`profiles/GIT_STATE_RETURN_V1.md`](profiles/GIT_STATE_RETURN_V1.md).
+
+The implementation is intentionally small:
+
+- `prospect` enumerates occurrences within one declared first-parent scope;
+- `assay` recomputes the occurrence against a local repository instead of trusting JSON fields; and
+- `catalogue` deduplicates repeat discoveries by specimen identifier and renders a static local HTML page.
+
+The CLI uses Python's standard library plus read-only Git commands. It does not change the inspected repository's working tree, refs, index, or configuration.
+
+### Demo
+
+Run the deterministic synthetic demonstration with:
+
+```bash
+make demo
+```
+
+The demo will:
+
+1. create an isolated synthetic Git fixture;
+2. discover exact-content return formations;
+3. export evidence;
+4. verify the valid specimen;
+5. reject a tampered specimen; and
+6. write a local static catalogue to `examples/demo-output/catalogue.html`.
+
+### Reproduction commands
+
+Run the tests:
+
+```bash
+make test
+```
+
+Prospect a real local repository with an explicit pinned commit and path:
+
+```bash
+python -m computational_geology.cli prospect --repo /absolute/path/to/repo --commit <full-commit-id> --path path/inside/repo.txt
+```
+
+Assay an exported evidence bundle against a local repository copy:
+
+```bash
+python -m computational_geology.cli assay --repo /absolute/path/to/repo --evidence /absolute/path/to/evidence.json
+```
+
+### Limitations
+
+- Assay currently requires a local Git repository containing the declared pinned commit and enough first-parent ancestry to recompute the occurrence.
+- A small JSON bundle is **not** treated as a self-contained proof of arbitrary ancestry. Missing commit objects or incomplete ancestry produce `INSUFFICIENT EVIDENCE`, not “no formation exists.”
+- The profile only recognizes exact path matches for ordinary file blobs on first-parent history. It does not follow renames, inspect second parents, or infer authorship, intent, originality, causation, or independent wall-clock chronology.
+- Git timestamps and blob hashes are treated as data points inside the declared scope, not as independently authenticated proof of when content existed.
+- This prototype shows that discovery can change a catalogue without changing the declared historical source. It does **not** prove monetary scarcity, ownership, title, or resistance to intentionally manufacturing similar future histories.

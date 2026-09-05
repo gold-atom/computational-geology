@@ -1,0 +1,23 @@
+{
+  "reasons": [
+    "occurrence matches the declared source scope and recomputed evidence"
+  ],
+  "specimen": {
+    "blob_ids": [
+      "180a6afd4c944f9399a1abc36d79a541d83183c7",
+      "ed7948340ec453b0f273e819884cb6a5383ae82e",
+      "180a6afd4c944f9399a1abc36d79a541d83183c7"
+    ],
+    "git_object_hash": "sha1",
+    "id": "cg-specimen-v1-sha256:9bdc80ff64e26426c273b215b8d861e7fa6d65fac61edd6aaef5eb1033ba22bf",
+    "occurrence_commits": [
+      "0aa19785de85f966a193655d95c054a64ee37ed1",
+      "0254e742c8c4e87e4d6164325e556654f4ab9f12",
+      "ff7e72223fd62a26c1f1e906b67dc5e3dd672649"
+    ],
+    "path": "strata/specimen.txt",
+    "path_utf8_hex": "7374726174612f73706563696d656e2e747874",
+    "rule": "git-state-return/v1"
+  },
+  "status": "VERIFIED WITHIN DECLARED SCOPE"
+}
