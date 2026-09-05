@@ -57,7 +57,11 @@ def _cmd_catalogue(args: argparse.Namespace) -> int:
     evidence_paths = [Path(path) for path in args.evidence_files]
     bundles = [_load_json(path) for path in evidence_paths]
     specimens = catalogue_occurrences(bundles)
-    links = {bundle["specimen"]["id"]: path.name for bundle, path in zip(bundles, evidence_paths)}
+    links: dict[str, str] = {}
+    for bundle, path in zip(bundles, evidence_paths):
+        specimen_id = bundle.get("specimen", {}).get("id")
+        if specimen_id and specimen_id not in links:
+            links[specimen_id] = path.name
     html = render_catalogue_html(specimens, links)
     output_path = Path(args.output_html)
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -163,8 +163,8 @@ def _blob_at_path(repository: Path, commit: str, path: str) -> str | None:
         return None
     entry = listing.rstrip(b"\0").split(b"\0")[0]
     metadata, actual_path = entry.split(b"\t", 1)
-    mode, object_type, object_id = metadata.decode("utf-8").split(" ")
-    if actual_path.decode("utf-8") != path:
+    mode, object_type, object_id = metadata.decode("ascii").split(" ")
+    if actual_path != path.encode("utf-8"):
         return None
     if object_type != "blob" or mode not in ORDINARY_FILE_MODES:
         return None
