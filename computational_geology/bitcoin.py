@@ -254,6 +254,10 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
     specimen = bundle["specimen"]
     if specimen.get("rule") != PROFILE_ID:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["unsupported formation rule"]}
+    if not isinstance(specimen.get("occurrence_heights"), list) or not isinstance(specimen.get("block_hashes"), list):
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["specimen occurrence heights and block hashes must be lists"]}
+    if not isinstance(specimen.get("field_values"), list):
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["specimen field values must be a list"]}
     if len(specimen.get("occurrence_heights", [])) != 3 or len(specimen.get("block_hashes", [])) != 3:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["specimen must bind exactly three occurrence heights and three block hashes"]}
     if len(specimen.get("field_values", [])) != 3:

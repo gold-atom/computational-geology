@@ -423,6 +423,15 @@ class EngineTests(unittest.TestCase):
         result = run_bitcoin_assay(fixture.headers_file, tampered)
         self.assertEqual(result["status"], ASSAY_CONTRADICTED)
 
+    def test_bitcoin_assay_rejects_non_list_bindings(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(fixture)
+        tampered = copy.deepcopy(bundle)
+        tampered["specimen"]["occurrence_heights"] = "012"
+        result = run_bitcoin_assay(fixture.headers_file, tampered)
+        self.assertEqual(result["status"], ASSAY_CONTRADICTED)
+
     def test_bitcoin_assay_rejects_out_of_order_occurrence_heights(self) -> None:
         fixture = SyntheticBitcoinFixture(self.root)
         fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
