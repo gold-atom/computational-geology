@@ -79,7 +79,7 @@ def serialize_block_header(
     )
 
 
-def read_block_headers(headers_file: str | Path, *, start_height: int = 0, network: str = "synthetic") -> list[BitcoinHeader]:
+def read_block_headers(headers_file: str | Path, *, start_height: int = 0) -> list[BitcoinHeader]:
     if start_height < 0:
         raise ValueError("start_height must be non-negative")
     header_path = Path(headers_file)
@@ -192,7 +192,7 @@ def prospect_bitcoin_occurrences(
     field: str,
     start_height: int = 0,
 ) -> dict[str, Any]:
-    headers = read_block_headers(headers_file, start_height=start_height, network=network)
+    headers = read_block_headers(headers_file, start_height=start_height)
     return _prospect_headers(headers, network=network, field=field, start_height=start_height)
 
 
@@ -277,7 +277,7 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
         return {"status": ASSAY_CONTRADICTED, "reasons": ["declared source header count does not match the height range"]}
 
     try:
-        headers = read_block_headers(headers_file, start_height=start_height, network=network)
+        headers = read_block_headers(headers_file, start_height=start_height)
     except (BitcoinInspectionError, OSError) as error:
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [str(error)]}
     except ValueError as error:
@@ -289,6 +289,9 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
         return {"status": ASSAY_CONTRADICTED, "reasons": ["declared first block hash does not match the header stream"]}
     if declared_source.get("last_block_hash") and headers[-1].block_hash != declared_source["last_block_hash"]:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["declared last block hash does not match the header stream"]}
+
+    if specimen["occurrence_heights"] != sorted(specimen["occurrence_heights"]):
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["occurrence heights must be strictly increasing in discovery order"]}
 
     for height, block_hash, field_value in zip(
         specimen["occurrence_heights"], specimen["block_hashes"], specimen["field_values"]
