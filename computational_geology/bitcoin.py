@@ -23,16 +23,6 @@ PROFILE_SUMMARY = (
 HEADER_SIZE = 80
 HEADER_ENCODING = "bitcoin-block-header-raw80-concatenated/v1"
 SUPPORTED_FIELDS = {"bits", "merkle_root", "nonce", "previous_block_hash", "timestamp", "version"}
-KNOWN_GENESIS_HASHES = {
-    "mainnet": "000000000019d6689c085ae165831e93"
-    "4ff763ae46a2a6c172b3f1b60a8ce26f",
-    "regtest": "0f9188f13cb7b2c71f2a335e3a4fc328"
-    "bf5beb436012afca590b1a11466e2206",
-    "signet": "00000008819873e925422c1ff0f99f7c"
-    "e3e29b81f6e7f7d40000000000000000",
-    "testnet3": "000000000933ea01ad0ee984209779ba"
-    "aec3ced90fa3f408719526f8d77f4943",
-}
 
 
 class BitcoinInspectionError(RuntimeError):
@@ -115,15 +105,13 @@ def read_block_headers(headers_file: str | Path, *, start_height: int = 0, netwo
             )
         )
 
-    _validate_header_chain(headers, network=network, start_height=start_height)
+    _validate_header_chain(headers)
     return headers
 
 
-def _validate_header_chain(headers: list[BitcoinHeader], *, network: str, start_height: int) -> None:
+def _validate_header_chain(headers: list[BitcoinHeader]) -> None:
     if not headers:
         return
-    if start_height == 0 and network in KNOWN_GENESIS_HASHES and headers[0].block_hash != KNOWN_GENESIS_HASHES[network]:
-        raise BitcoinInspectionError(f"first header does not match the declared {network} genesis block")
     for previous_header, current_header in zip(headers, headers[1:]):
         if current_header.previous_block_hash != previous_header.block_hash:
             raise BitcoinInspectionError(
@@ -173,14 +161,7 @@ def _occurrence_from_runs(first: HeaderRun, second: HeaderRun, third: HeaderRun,
     return {"id": _specimen_id(payload), **payload}
 
 
-def prospect_bitcoin_occurrences(
-    headers_file: str | Path,
-    *,
-    network: str,
-    field: str,
-    start_height: int = 0,
-) -> dict[str, Any]:
-    headers = read_block_headers(headers_file, start_height=start_height, network=network)
+def _prospect_headers(headers: list[BitcoinHeader], *, network: str, field: str, start_height: int) -> dict[str, Any]:
     if field not in SUPPORTED_FIELDS:
         raise ValueError(f"unsupported bitcoin header field: {field}")
     runs = _compress_header_runs(headers, field)
@@ -202,6 +183,17 @@ def prospect_bitcoin_occurrences(
         "occurrence_count": len(occurrences),
         "occurrences": occurrences,
     }
+
+
+def prospect_bitcoin_occurrences(
+    headers_file: str | Path,
+    *,
+    network: str,
+    field: str,
+    start_height: int = 0,
+) -> dict[str, Any]:
+    headers = read_block_headers(headers_file, start_height=start_height, network=network)
+    return _prospect_headers(headers, network=network, field=field, start_height=start_height)
 
 
 def export_bitcoin_evidence_bundle(prospect_result: dict[str, Any], occurrence: dict[str, Any]) -> dict[str, Any]:
@@ -312,7 +304,7 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
         if _field_value(header, field) != field_value:
             return {"status": ASSAY_CONTRADICTED, "reasons": [f"declared field value does not match height binding: {height}"]}
 
-    prospect_result = prospect_bitcoin_occurrences(headers_file, network=network, field=field, start_height=start_height)
+    prospect_result = _prospect_headers(headers, network=network, field=field, start_height=start_height)
     for occurrence in prospect_result["occurrences"]:
         if occurrence["id"] == specimen["id"]:
             if occurrence == specimen:
