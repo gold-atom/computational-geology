@@ -291,10 +291,11 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
 
     if len(headers) != header_count:
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": ["header stream does not contain the declared number of headers"]}
-    if declared_source.get("first_block_hash") and headers[0].block_hash != declared_source["first_block_hash"]:
-        return {"status": ASSAY_CONTRADICTED, "reasons": ["declared first block hash does not match the header stream"]}
-    if declared_source.get("last_block_hash") and headers[-1].block_hash != declared_source["last_block_hash"]:
-        return {"status": ASSAY_CONTRADICTED, "reasons": ["declared last block hash does not match the header stream"]}
+    if headers:
+        if declared_source.get("first_block_hash") and headers[0].block_hash != declared_source["first_block_hash"]:
+            return {"status": ASSAY_CONTRADICTED, "reasons": ["declared first block hash does not match the header stream"]}
+        if declared_source.get("last_block_hash") and headers[-1].block_hash != declared_source["last_block_hash"]:
+            return {"status": ASSAY_CONTRADICTED, "reasons": ["declared last block hash does not match the header stream"]}
 
     ordered_heights = specimen["occurrence_heights"]
     if any(previous_height >= next_height for previous_height, next_height in zip(ordered_heights, ordered_heights[1:])):

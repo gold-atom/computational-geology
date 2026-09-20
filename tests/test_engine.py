@@ -323,6 +323,7 @@ class EngineTests(unittest.TestCase):
     def test_catalogue_html_escapes_dynamic_values(self) -> None:
         specimen = {
             "id": '<script>alert(1)</script>',
+            "rule": "git-state-return/v1",
             "path": 'strata/<layer>.txt',
             "occurrence_commits": ['a"', 'b&', 'c<'],
         }

@@ -448,10 +448,7 @@ def _safe_catalogue_href(href: str) -> str | None:
 def _catalogue_description(specimen: dict[str, Any]) -> str:
     rule = specimen.get("rule")
     if not rule:
-        if "occurrence_commits" in specimen:
-            rule = PROFILE_ID
-        elif "occurrence_heights" in specimen:
-            rule = "bitcoin-header-field-return/v1"
+        raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: missing rule")
     if rule == PROFILE_ID:
         required_fields = {"path", "occurrence_commits"}
         missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
@@ -469,8 +466,6 @@ def _catalogue_description(specimen: dict[str, Any]) -> str:
             raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: expected three occurrence heights")
         heights = ", ".join(str(height) for height in specimen["occurrence_heights"])
         return f"{specimen['network']} {specimen['field']} :: heights {heights}"
-    if specimen.get("rule") is None and rule is None:
-        raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: missing rule")
     raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: unsupported specimen shape")
 
 
