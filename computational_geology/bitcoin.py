@@ -290,7 +290,8 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
     if declared_source.get("last_block_hash") and headers[-1].block_hash != declared_source["last_block_hash"]:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["declared last block hash does not match the header stream"]}
 
-    if specimen["occurrence_heights"] != sorted(specimen["occurrence_heights"]):
+    ordered_heights = specimen["occurrence_heights"]
+    if any(previous_height >= next_height for previous_height, next_height in zip(ordered_heights, ordered_heights[1:])):
         return {"status": ASSAY_CONTRADICTED, "reasons": ["occurrence heights must be strictly increasing in discovery order"]}
 
     for height, block_hash, field_value in zip(

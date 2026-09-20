@@ -411,22 +411,7 @@ def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]
         specimen_id = specimen.get("id")
         if not specimen_id:
             continue
-        if "occurrence_commits" in specimen:
-            required_fields = {"path", "occurrence_commits"}
-            missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
-            if missing_fields:
-                raise ValueError(f"malformed catalogue specimen {specimen_id}: missing {', '.join(missing_fields)}")
-            if len(specimen.get("occurrence_commits", [])) != 3:
-                raise ValueError(f"malformed catalogue specimen {specimen_id}: expected three occurrence commits")
-        elif "occurrence_heights" in specimen:
-            required_fields = {"network", "field", "occurrence_heights"}
-            missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
-            if missing_fields:
-                raise ValueError(f"malformed catalogue specimen {specimen_id}: missing {', '.join(missing_fields)}")
-            if len(specimen.get("occurrence_heights", [])) != 3:
-                raise ValueError(f"malformed catalogue specimen {specimen_id}: expected three occurrence heights")
-        else:
-            raise ValueError(f"malformed catalogue specimen {specimen_id}: unsupported specimen shape")
+        description = _catalogue_description(specimen)
         signature = _canonical_json({
             "payload": _known_evidence_payload(bundle),
             "integrity": (bundle.get("integrity") or {}).get("canonical_bundle_sha256"),
@@ -434,7 +419,7 @@ def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]
         if specimen_id in bundle_signatures and bundle_signatures[specimen_id] != signature:
             raise ValueError(f"conflicting specimen evidence for {specimen_id}")
         bundle_signatures.setdefault(specimen_id, signature)
-        catalogue.setdefault(specimen_id, specimen)
+        catalogue.setdefault(specimen_id, {**specimen, "_catalogue_description": description})
     return [catalogue[specimen_id] for specimen_id in sorted(catalogue)]
 
 
@@ -462,11 +447,23 @@ def _safe_catalogue_href(href: str) -> str | None:
 
 def _catalogue_description(specimen: dict[str, Any]) -> str:
     if "occurrence_commits" in specimen:
+        required_fields = {"path", "occurrence_commits"}
+        missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
+        if missing_fields:
+            raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: missing {', '.join(missing_fields)}")
+        if len(specimen.get("occurrence_commits", [])) != 3:
+            raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: expected three occurrence commits")
         return f"{specimen['path']} :: {' → '.join(specimen['occurrence_commits'])}"
     if "occurrence_heights" in specimen:
+        required_fields = {"network", "field", "occurrence_heights"}
+        missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
+        if missing_fields:
+            raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: missing {', '.join(missing_fields)}")
+        if len(specimen.get("occurrence_heights", [])) != 3:
+            raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: expected three occurrence heights")
         heights = ", ".join(str(height) for height in specimen["occurrence_heights"])
         return f"{specimen['network']} {specimen['field']} :: heights {heights}"
-    raise ValueError(f"unsupported specimen shape for catalogue rendering: {specimen.get('id', '<unknown>')}")
+    raise ValueError(f"malformed catalogue specimen {specimen.get('id', '<unknown>')}: unsupported specimen shape")
 
 
 def render_catalogue_html(
@@ -496,7 +493,7 @@ def render_catalogue_html(
         evidence_link = evidence_links.get(specimen["id"])
         safe_href = _safe_catalogue_href(evidence_link) if evidence_link else None
         identifier = html.escape(specimen["id"], quote=True)
-        description = html.escape(_catalogue_description(specimen), quote=True)
+        description = html.escape(specimen.get("_catalogue_description") or _catalogue_description(specimen), quote=True)
         if safe_href:
             href = html.escape(safe_href, quote=True)
             lines.append(f"    <li><a href=\"{href}\">{identifier}</a><br>{description}</li>")
