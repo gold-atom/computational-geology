@@ -58,6 +58,10 @@ def _display_hash(little_endian_bytes: bytes) -> str:
     return little_endian_bytes[::-1].hex()
 
 
+def _header_stream_sha256(headers_file: str | Path) -> str:
+    return hashlib.sha256(Path(headers_file).read_bytes()).hexdigest()
+
+
 def serialize_block_header(
     *,
     version: int,
@@ -210,7 +214,9 @@ def prospect_bitcoin_occurrences(
     start_height: int = 0,
 ) -> dict[str, Any]:
     headers = read_block_headers(headers_file, start_height=start_height)
-    return _prospect_headers(headers, network=network, field=field, start_height=start_height)
+    result = _prospect_headers(headers, network=network, field=field, start_height=start_height)
+    result["header_stream_sha256"] = _header_stream_sha256(headers_file)
+    return result
 
 
 def export_bitcoin_evidence_bundle(prospect_result: dict[str, Any], occurrence: dict[str, Any]) -> dict[str, Any]:
@@ -227,6 +233,7 @@ def export_bitcoin_evidence_bundle(prospect_result: dict[str, Any], occurrence: 
             "network": prospect_result["network"],
             "field": prospect_result["field"],
             "header_encoding": HEADER_ENCODING,
+            "header_stream_sha256": prospect_result["header_stream_sha256"],
             "start_height": prospect_result["start_height"],
             "end_height": prospect_result["end_height"],
             "header_count": prospect_result["header_count"],
@@ -314,13 +321,18 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
 
     try:
         headers = read_block_headers(headers_file, start_height=start_height)
-    except (BitcoinInspectionError, OSError) as error:
+    except OSError as error:
+        return {"status": ASSAY_CONTRADICTED, "reasons": [str(error)]}
+    except BitcoinInspectionError as error:
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": [str(error)]}
     except ValueError as error:
         return {"status": ASSAY_CONTRADICTED, "reasons": [str(error)]}
 
     if len(headers) != header_count:
         return {"status": ASSAY_INSUFFICIENT_EVIDENCE, "reasons": ["header stream does not contain the declared number of headers"]}
+    declared_stream_sha256 = declared_source.get("header_stream_sha256")
+    if declared_stream_sha256 and _header_stream_sha256(headers_file) != declared_stream_sha256:
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["declared header stream digest does not match the local file"]}
     if headers:
         if declared_source.get("first_block_hash") and headers[0].block_hash != declared_source["first_block_hash"]:
             return {"status": ASSAY_CONTRADICTED, "reasons": ["declared first block hash does not match the header stream"]}

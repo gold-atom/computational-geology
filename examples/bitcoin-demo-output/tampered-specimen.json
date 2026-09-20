@@ -11,6 +11,7 @@
     "first_block_hash": "d08eaa551c2b142eccd2a8865a5a4f48fde26626207bfa68811fbf475f502469",
     "header_count": 3,
     "header_encoding": "bitcoin-block-header-raw80-concatenated/v1",
+    "header_stream_sha256": "ccff0eb4fff4169b34b016060a6ce5e77abc8ac65bfa4ccb3724ea875db95cf2",
     "kind": "bitcoin-header-stream",
     "last_block_hash": "a9303ec8ca60eb7e2fe9c2a5c852379c9b5aa25b5dbb98d96af9649b288b38e9",
     "network": "synthetic",
@@ -24,7 +25,7 @@
     "version": 1
   },
   "integrity": {
-    "canonical_bundle_sha256": "5d16210afb04154745197a6ee917b01275927dbfec3db7078d1a96b192fd3ed3"
+    "canonical_bundle_sha256": "fa69e90ca650fe0d487174e8b874b9757431e3c5457d01905e29f7560e8aaa79"
   },
   "specimen": {
     "block_hashes": [

@@ -402,6 +402,14 @@ class EngineTests(unittest.TestCase):
         result = run_bitcoin_assay(fixture.headers_file, bundle)
         self.assertEqual(result["status"], ASSAY_INSUFFICIENT_EVIDENCE)
 
+    def test_bitcoin_assay_contradicts_when_header_file_is_missing(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(fixture)
+        fixture.headers_file.unlink()
+        result = run_bitcoin_assay(fixture.headers_file, bundle)
+        self.assertEqual(result["status"], ASSAY_CONTRADICTED)
+
     def test_bitcoin_assay_is_insufficient_when_header_linkage_is_broken(self) -> None:
         valid_fixture = SyntheticBitcoinFixture(self.root / "valid")
         valid_fixture.headers_file.parent.mkdir(parents=True, exist_ok=True)

@@ -5,6 +5,7 @@
   "formation_rule": "bitcoin-header-field-return/v1",
   "formation_summary": "Three consecutive runs over one Bitcoin block-header field within one declared offline header stream, labeled A->B->A where A and B differ.",
   "header_count": 3,
+  "header_stream_sha256": "ccff0eb4fff4169b34b016060a6ce5e77abc8ac65bfa4ccb3724ea875db95cf2",
   "last_block_hash": "a9303ec8ca60eb7e2fe9c2a5c852379c9b5aa25b5dbb98d96af9649b288b38e9",
   "network": "synthetic",
   "occurrence_count": 1,
