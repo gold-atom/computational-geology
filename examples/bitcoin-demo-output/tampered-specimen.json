@@ -1,0 +1,50 @@
+{
+  "declared_coverage": {
+    "broken_stream_behavior": "assay rejects malformed linkage; prospecting requires a contiguous header stream",
+    "field_projection": "bits",
+    "ordering": "in-file contiguous Bitcoin block-header order",
+    "run_compression": true
+  },
+  "declared_source": {
+    "end_height": 2,
+    "field": "bits",
+    "first_block_hash": "d08eaa551c2b142eccd2a8865a5a4f48fde26626207bfa68811fbf475f502469",
+    "header_count": 3,
+    "header_encoding": "bitcoin-block-header-raw80-concatenated/v1",
+    "kind": "bitcoin-header-stream",
+    "last_block_hash": "a9303ec8ca60eb7e2fe9c2a5c852379c9b5aa25b5dbb98d96af9649b288b38e9",
+    "network": "synthetic",
+    "start_height": 0
+  },
+  "evidence_version": "computational-geology-evidence/v1",
+  "external_witnesses": [],
+  "formation_rule": {
+    "id": "bitcoin-header-field-return/v1",
+    "summary": "Three consecutive runs over one Bitcoin block-header field within one declared offline header stream, labeled A->B->A where A and B differ.",
+    "version": 1
+  },
+  "integrity": {
+    "canonical_bundle_sha256": "5d16210afb04154745197a6ee917b01275927dbfec3db7078d1a96b192fd3ed3"
+  },
+  "specimen": {
+    "block_hashes": [
+      "d08eaa551c2b142eccd2a8865a5a4f48fde26626207bfa68811fbf475f502469",
+      "3d957b2f32857e34d3a22d2e26645e76250e323fd228d7665f525853d282471c",
+      "a9303ec8ca60eb7e2fe9c2a5c852379c9b5aa25b5dbb98d96af9649b288b38e9"
+    ],
+    "field": "bits",
+    "field_values": [
+      "4d00ffff",
+      "4d00ffff",
+      "4d00ffff"
+    ],
+    "id": "cg-specimen-v1-sha256:e0e3e0d1e9ec991c3327b1dbddef590f08b744baa0dc5e5b85df7996e32295bb",
+    "network": "synthetic",
+    "occurrence_heights": [
+      0,
+      1,
+      2
+    ],
+    "rule": "bitcoin-header-field-return/v1"
+  }
+}

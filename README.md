@@ -101,6 +101,7 @@ GoldAtom/0's public repository describes a verifier-first proof-object prototype
 | [`research/GOLDATOM_RELATIONSHIP.md`](research/GOLDATOM_RELATIONSHIP.md) | Scope boundary with GoldAtom |
 | [`examples/BOUNDED_FORMATION.md`](examples/BOUNDED_FORMATION.md) | Worked research construction and counterexamples |
 | [`profiles/GIT_STATE_RETURN_V1.md`](profiles/GIT_STATE_RETURN_V1.md) | Precise first executable formation rule for exact-content Git state return |
+| [`profiles/BITCOIN_HEADER_FIELD_RETURN_V1.md`](profiles/BITCOIN_HEADER_FIELD_RETURN_V1.md) | Read-only executable prototype for offline Bitcoin header-field return prospecting |
 | [`computational_geology/`](computational_geology) | Read-only Python library and CLI for prospecting, assay, and catalogue generation |
 | [`tests/test_engine.py`](tests/test_engine.py) | Deterministic synthetic fixtures and executable rule checks |
 
@@ -153,6 +154,25 @@ The demo will:
 5. reject a tampered specimen; and
 6. write a local static catalogue to `examples/demo-output/catalogue.html`.
 
+### Offline Bitcoin header demo
+
+The repository also includes a deliberately narrow **read-only Bitcoin header-field return** prototype over an offline contiguous header stream. The precise rule is specified in [`profiles/BITCOIN_HEADER_FIELD_RETURN_V1.md`](profiles/BITCOIN_HEADER_FIELD_RETURN_V1.md).
+
+Run the deterministic synthetic Bitcoin demonstration with:
+
+```bash
+make demo-bitcoin
+```
+
+The Bitcoin demo will:
+
+1. create an isolated synthetic header stream;
+2. prospect the `bits` field for an `A → B → A` return;
+3. export evidence;
+4. verify the valid specimen;
+5. reject a tampered specimen; and
+6. write a clearly labeled synthetic catalogue to `examples/bitcoin-demo-output/catalogue.html`.
+
 ### Reproduction commands
 
 Run the tests:
@@ -173,10 +193,24 @@ Assay an exported evidence bundle against a local repository copy:
 python -m computational_geology.cli assay --repo /absolute/path/to/repo --evidence /absolute/path/to/evidence.json
 ```
 
+Prospect an offline Bitcoin header stream with an explicit field projection and starting height:
+
+```bash
+python -m computational_geology.cli bitcoin-prospect --headers-file /absolute/path/to/headers.bin --network synthetic --field bits --start-height 0
+```
+
+Assay an exported Bitcoin evidence bundle against an offline header stream:
+
+```bash
+python -m computational_geology.cli bitcoin-assay --headers-file /absolute/path/to/headers.bin --evidence /absolute/path/to/evidence.json
+```
+
 ### Limitations
 
 - Assay currently requires a local Git repository containing the declared pinned commit and enough first-parent ancestry to recompute the occurrence.
 - A small JSON bundle is **not** treated as a self-contained proof of arbitrary ancestry. Missing commit objects or incomplete ancestry produce `INSUFFICIENT EVIDENCE`, not “no formation exists.”
 - The profile only recognizes exact path matches for ordinary file blobs on first-parent history. It does not follow renames, inspect second parents, or infer authorship, intent, originality, causation, or independent wall-clock chronology.
 - Git timestamps and blob hashes are treated as data points inside the declared scope, not as independently authenticated proof of when content existed.
+- The Bitcoin adapter currently starts from an offline header file that must already exist locally. Mainnet acquisition is intentionally out of scope for this pass.
+- The Bitcoin adapter verifies a contiguous in-file header stream and the declared projected field, but a nonzero `--start-height` remains a declared scope label unless additional independently verified chain anchors are supplied.
 - This prototype shows that discovery can change a catalogue without changing the declared historical source. It does **not** prove monetary scarcity, ownership, title, or resistance to intentionally manufacturing similar future histories.

@@ -250,29 +250,39 @@ def prospect_occurrences(repository: str | Path, pinned_commit: str, path: str) 
     }
 
 
-def export_evidence_bundle(prospect_result: dict[str, Any], occurrence: dict[str, Any]) -> dict[str, Any]:
+def export_evidence_bundle(
+    prospect_result: dict[str, Any],
+    occurrence: dict[str, Any],
+    *,
+    formation_rule: dict[str, Any] | None = None,
+    declared_source: dict[str, Any] | None = None,
+    declared_coverage: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    formation_rule = formation_rule or {
+        "id": PROFILE_ID,
+        "summary": PROFILE_SUMMARY,
+        "version": 1,
+    }
+    declared_source = declared_source or {
+        "kind": "git-local-repository",
+        "pinned_commit": prospect_result["pinned_commit"],
+        "first_parent_only": True,
+        "path": prospect_result["path"],
+    }
+    declared_coverage = declared_coverage or {
+        "ancestry_order": "oldest-to-newest first-parent ancestry ending at the pinned commit",
+        "path_match": "exact repository-relative path",
+        "ordinary_file_modes": sorted(ORDINARY_FILE_MODES),
+        "rename_heuristics": False,
+        "second_parents": False,
+        "missing_path_breaks_sequence": True,
+        "unsupported_entry_breaks_sequence": True,
+    }
     bundle = {
         "evidence_version": EVIDENCE_VERSION,
-        "formation_rule": {
-            "id": PROFILE_ID,
-            "summary": PROFILE_SUMMARY,
-            "version": 1,
-        },
-        "declared_source": {
-            "kind": "git-local-repository",
-            "pinned_commit": prospect_result["pinned_commit"],
-            "first_parent_only": True,
-            "path": prospect_result["path"],
-        },
-        "declared_coverage": {
-            "ancestry_order": "oldest-to-newest first-parent ancestry ending at the pinned commit",
-            "path_match": "exact repository-relative path",
-            "ordinary_file_modes": sorted(ORDINARY_FILE_MODES),
-            "rename_heuristics": False,
-            "second_parents": False,
-            "missing_path_breaks_sequence": True,
-            "unsupported_entry_breaks_sequence": True,
-        },
+        "formation_rule": formation_rule,
+        "declared_source": declared_source,
+        "declared_coverage": declared_coverage,
         "specimen": occurrence,
         "external_witnesses": [],
     }
@@ -396,17 +406,27 @@ def run_assay(repository: str | Path, bundle: dict[str, Any]) -> dict[str, Any]:
 def catalogue_occurrences(bundles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     catalogue: dict[str, dict[str, Any]] = {}
     bundle_signatures: dict[str, bytes] = {}
-    required_fields = {"id", "path", "occurrence_commits"}
     for bundle in bundles:
         specimen = bundle.get("specimen") or {}
         specimen_id = specimen.get("id")
         if not specimen_id:
             continue
-        missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
-        if missing_fields:
-            raise ValueError(f"malformed catalogue specimen {specimen_id}: missing {', '.join(missing_fields)}")
-        if len(specimen.get("occurrence_commits", [])) != 3:
-            raise ValueError(f"malformed catalogue specimen {specimen_id}: expected three occurrence commits")
+        if "occurrence_commits" in specimen:
+            required_fields = {"path", "occurrence_commits"}
+            missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
+            if missing_fields:
+                raise ValueError(f"malformed catalogue specimen {specimen_id}: missing {', '.join(missing_fields)}")
+            if len(specimen.get("occurrence_commits", [])) != 3:
+                raise ValueError(f"malformed catalogue specimen {specimen_id}: expected three occurrence commits")
+        elif "occurrence_heights" in specimen:
+            required_fields = {"network", "field", "occurrence_heights"}
+            missing_fields = sorted(field_name for field_name in required_fields if field_name not in specimen)
+            if missing_fields:
+                raise ValueError(f"malformed catalogue specimen {specimen_id}: missing {', '.join(missing_fields)}")
+            if len(specimen.get("occurrence_heights", [])) != 3:
+                raise ValueError(f"malformed catalogue specimen {specimen_id}: expected three occurrence heights")
+        else:
+            raise ValueError(f"malformed catalogue specimen {specimen_id}: unsupported specimen shape")
         signature = _canonical_json({
             "payload": _known_evidence_payload(bundle),
             "integrity": (bundle.get("integrity") or {}).get("canonical_bundle_sha256"),
@@ -440,7 +460,22 @@ def _safe_catalogue_href(href: str) -> str | None:
     return normalized + suffix
 
 
-def render_catalogue_html(specimens: list[dict[str, Any]], evidence_links: dict[str, str] | None = None) -> str:
+def _catalogue_description(specimen: dict[str, Any]) -> str:
+    if "occurrence_commits" in specimen:
+        return f"{specimen['path']} :: {' → '.join(specimen['occurrence_commits'])}"
+    if "occurrence_heights" in specimen:
+        heights = ", ".join(str(height) for height in specimen["occurrence_heights"])
+        return f"{specimen['network']} {specimen['field']} :: heights {heights}"
+    raise ValueError(f"unsupported specimen shape for catalogue rendering: {specimen.get('id', '<unknown>')}")
+
+
+def render_catalogue_html(
+    specimens: list[dict[str, Any]],
+    evidence_links: dict[str, str] | None = None,
+    *,
+    heading: str = "Computational Geology Catalogue",
+    notice: str | None = None,
+) -> str:
     evidence_links = evidence_links or {}
     lines = [
         "<!doctype html>",
@@ -450,17 +485,18 @@ def render_catalogue_html(specimens: list[dict[str, Any]], evidence_links: dict[
         "  <title>Computational Geology Catalogue</title>",
         "</head>",
         "<body>",
-        "  <h1>SYNTHETIC FIXTURE</h1>",
-        "  <p>This catalogue was generated from a deterministic synthetic fixture. It is not an independently witnessed historical discovery.</p>",
-        "  <ul>",
+        f"  <h1>{html.escape(heading, quote=True)}</h1>",
     ]
+    if notice:
+        lines.append(f"  <p>{html.escape(notice, quote=True)}</p>")
+    lines.extend([
+        "  <ul>",
+    ])
     for specimen in specimens:
         evidence_link = evidence_links.get(specimen["id"])
         safe_href = _safe_catalogue_href(evidence_link) if evidence_link else None
         identifier = html.escape(specimen["id"], quote=True)
-        description = html.escape(
-            f"{specimen['path']} :: {' → '.join(specimen['occurrence_commits'])}", quote=True
-        )
+        description = html.escape(_catalogue_description(specimen), quote=True)
         if safe_href:
             href = html.escape(safe_href, quote=True)
             lines.append(f"    <li><a href=\"{href}\">{identifier}</a><br>{description}</li>")

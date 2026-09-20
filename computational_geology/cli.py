@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import tempfile
 from pathlib import Path
 
+from .bitcoin import (
+    export_bitcoin_evidence_bundle,
+    prospect_bitcoin_occurrences,
+    run_bitcoin_assay,
+    serialize_block_header,
+)
 from .engine import (
     ASSAY_CONTRADICTED,
     ASSAY_VERIFIED,
@@ -107,6 +114,63 @@ def _build_synthetic_fixture(root: Path) -> tuple[Path, str, str]:
     return repo, pinned_commit, path
 
 
+def _cmd_bitcoin_prospect(args: argparse.Namespace) -> int:
+    result = prospect_bitcoin_occurrences(
+        args.headers_file,
+        network=args.network,
+        field=args.field,
+        start_height=args.start_height,
+    )
+    if args.evidence_dir:
+        evidence_dir = Path(args.evidence_dir)
+        for occurrence in result["occurrences"]:
+            bundle = export_bitcoin_evidence_bundle(result, occurrence)
+            _write_json(evidence_dir / f"{occurrence['id']}.json", bundle)
+    if args.output:
+        _write_json(Path(args.output), result)
+    else:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def _cmd_bitcoin_assay(args: argparse.Namespace) -> int:
+    result = run_bitcoin_assay(args.headers_file, _load_json(Path(args.evidence)))
+    if args.output:
+        _write_json(Path(args.output), result)
+    else:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    if result["status"] == ASSAY_CONTRADICTED:
+        return 1
+    if result["status"] != ASSAY_VERIFIED:
+        return 2
+    return 0
+
+
+def _build_synthetic_bitcoin_headers(root: Path) -> tuple[Path, int]:
+    headers_file = root / "synthetic-headers.bin"
+    previous_block_hash = "00" * 32
+    headers: list[bytes] = []
+    states = [
+        ("4d00ffff", 0),
+        ("1d00ffff", 1),
+        ("4d00ffff", 2),
+    ]
+    for index, (bits, nonce) in enumerate(states, start=1):
+        merkle_root = f"{index:064x}"
+        header = serialize_block_header(
+            version=1,
+            previous_block_hash=previous_block_hash,
+            merkle_root=merkle_root,
+            timestamp=1231006505 + index,
+            bits=bits,
+            nonce=nonce,
+        )
+        headers.append(header)
+        previous_block_hash = hashlib.sha256(hashlib.sha256(header).digest()).digest()[::-1].hex()
+    headers_file.write_bytes(b"".join(headers))
+    return headers_file, 0
+
+
 def _cmd_demo(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir)
     if output_dir.exists():
@@ -132,11 +196,69 @@ def _cmd_demo(args: argparse.Namespace) -> int:
         _write_json(output_dir / "tampered-assay.json", tampered_assay)
 
         specimens = catalogue_occurrences([bundle])
-        html = render_catalogue_html(specimens, {bundle["specimen"]["id"]: valid_evidence.name})
+        html = render_catalogue_html(
+            specimens,
+            {bundle["specimen"]["id"]: valid_evidence.name},
+            heading="SYNTHETIC GIT FIXTURE",
+            notice=(
+                "This catalogue was generated from a deterministic synthetic Git fixture. "
+                "It is not an independently witnessed historical discovery."
+            ),
+        )
         (output_dir / "catalogue.html").write_text(html, encoding="utf-8")
 
         print(f"Synthetic repository: {repo}")
         print(f"Pinned commit: {pinned_commit}")
+        print(f"Valid assay: {valid_assay['status']}")
+        print(f"Tampered assay: {tampered_assay['status']}")
+        print(f"Catalogue: {output_dir / 'catalogue.html'}")
+    return 0
+
+
+def _cmd_bitcoin_demo(args: argparse.Namespace) -> int:
+    output_dir = Path(args.output_dir)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="computational-geology-bitcoin-demo-") as temp_dir:
+        headers_file, start_height = _build_synthetic_bitcoin_headers(Path(temp_dir))
+        output_headers = output_dir / "synthetic-headers.bin"
+        shutil.copyfile(headers_file, output_headers)
+        prospect_result = prospect_bitcoin_occurrences(
+            output_headers,
+            network="synthetic",
+            field="bits",
+            start_height=start_height,
+        )
+        _write_json(output_dir / "prospect.json", prospect_result)
+        if not prospect_result["occurrences"]:
+            raise SystemExit("synthetic Bitcoin fixture did not produce an occurrence")
+        bundle = export_bitcoin_evidence_bundle(prospect_result, prospect_result["occurrences"][0])
+        valid_evidence = output_dir / "valid-specimen.json"
+        _write_json(valid_evidence, bundle)
+        valid_assay = run_bitcoin_assay(output_headers, bundle)
+        _write_json(output_dir / "valid-assay.json", valid_assay)
+
+        tampered_bundle = json.loads(json.dumps(bundle))
+        tampered_bundle["specimen"]["field_values"][1] = tampered_bundle["specimen"]["field_values"][0]
+        _write_json(output_dir / "tampered-specimen.json", tampered_bundle)
+        tampered_assay = run_bitcoin_assay(output_headers, tampered_bundle)
+        _write_json(output_dir / "tampered-assay.json", tampered_assay)
+
+        specimens = catalogue_occurrences([bundle])
+        html = render_catalogue_html(
+            specimens,
+            {bundle["specimen"]["id"]: valid_evidence.name},
+            heading="SYNTHETIC BITCOIN HEADER FIXTURE",
+            notice=(
+                "This catalogue was generated from a deterministic synthetic Bitcoin header fixture. "
+                "It is not an independently witnessed historical discovery."
+            ),
+        )
+        (output_dir / "catalogue.html").write_text(html, encoding="utf-8")
+
+        print(f"Synthetic headers: {output_headers}")
+        print(f"Prospected field: bits")
         print(f"Valid assay: {valid_assay['status']}")
         print(f"Tampered assay: {tampered_assay['status']}")
         print(f"Catalogue: {output_dir / 'catalogue.html'}")
@@ -155,11 +277,26 @@ def build_parser() -> argparse.ArgumentParser:
     prospect.add_argument("--evidence-dir")
     prospect.set_defaults(func=_cmd_prospect)
 
+    bitcoin_prospect = subparsers.add_parser("bitcoin-prospect", help="Enumerate Bitcoin header-field return occurrences.")
+    bitcoin_prospect.add_argument("--headers-file", required=True)
+    bitcoin_prospect.add_argument("--network", default="synthetic")
+    bitcoin_prospect.add_argument("--field", default="bits")
+    bitcoin_prospect.add_argument("--start-height", type=int, default=0)
+    bitcoin_prospect.add_argument("--output")
+    bitcoin_prospect.add_argument("--evidence-dir")
+    bitcoin_prospect.set_defaults(func=_cmd_bitcoin_prospect)
+
     assay = subparsers.add_parser("assay", help="Recompute and verify an evidence bundle.")
     assay.add_argument("--repo", required=True)
     assay.add_argument("--evidence", required=True)
     assay.add_argument("--output")
     assay.set_defaults(func=_cmd_assay)
+
+    bitcoin_assay = subparsers.add_parser("bitcoin-assay", help="Recompute and verify a Bitcoin header evidence bundle.")
+    bitcoin_assay.add_argument("--headers-file", required=True)
+    bitcoin_assay.add_argument("--evidence", required=True)
+    bitcoin_assay.add_argument("--output")
+    bitcoin_assay.set_defaults(func=_cmd_bitcoin_assay)
 
     catalogue = subparsers.add_parser("catalogue", help="Deduplicate evidence bundles into a static HTML catalogue.")
     catalogue.add_argument("--output-html", required=True)
@@ -169,6 +306,10 @@ def build_parser() -> argparse.ArgumentParser:
     demo = subparsers.add_parser("demo", help="Create and verify a deterministic synthetic demonstration.")
     demo.add_argument("--output-dir", required=True)
     demo.set_defaults(func=_cmd_demo)
+
+    bitcoin_demo = subparsers.add_parser("bitcoin-demo", help="Create and verify a deterministic synthetic Bitcoin demonstration.")
+    bitcoin_demo.add_argument("--output-dir", required=True)
+    bitcoin_demo.set_defaults(func=_cmd_bitcoin_demo)
 
     return parser
 

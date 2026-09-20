@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import subprocess
@@ -9,6 +10,13 @@ import unittest
 import zlib
 from pathlib import Path
 
+from computational_geology.bitcoin import (
+    export_bitcoin_evidence_bundle,
+    prospect_bitcoin_occurrences,
+    read_block_headers,
+    run_bitcoin_assay,
+    serialize_block_header,
+)
 from computational_geology.engine import (
     ASSAY_CONTRADICTED,
     ASSAY_INSUFFICIENT_EVIDENCE,
@@ -71,6 +79,28 @@ class SyntheticGitFixture:
         return self._git("rev-parse", "HEAD").stdout.strip()
 
 
+class SyntheticBitcoinFixture:
+    def __init__(self, root: Path, *, start_height: int = 0) -> None:
+        self.headers_file = root / "synthetic-headers.bin"
+        self.start_height = start_height
+
+    def write_headers(self, bits_values: list[str], *, broken_link_index: int | None = None) -> None:
+        previous_block_hash = "00" * 32
+        headers: list[bytes] = []
+        for index, bits in enumerate(bits_values):
+            header = serialize_block_header(
+                version=1,
+                previous_block_hash=("ff" * 32 if broken_link_index == index else previous_block_hash),
+                merkle_root=f"{index + 1:064x}",
+                timestamp=1231006505 + index,
+                bits=bits,
+                nonce=index,
+            )
+            headers.append(header)
+            previous_block_hash = hashlib.sha256(hashlib.sha256(header).digest()).digest()[::-1].hex()
+        self.headers_file.write_bytes(b"".join(headers))
+
+
 class EngineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory(prefix="computational-geology-tests-")
@@ -90,6 +120,17 @@ class EngineTests(unittest.TestCase):
         self.assertTrue(result["occurrences"])
         occurrence = result["occurrences"][0]
         return result, export_evidence_bundle(result, occurrence)
+
+    def _bitcoin_bundle_from_fixture(self, fixture: SyntheticBitcoinFixture) -> tuple[dict, dict]:
+        result = prospect_bitcoin_occurrences(
+            fixture.headers_file,
+            network="synthetic",
+            field="bits",
+            start_height=fixture.start_height,
+        )
+        self.assertTrue(result["occurrences"])
+        occurrence = result["occurrences"][0]
+        return result, export_bitcoin_evidence_bundle(result, occurrence)
 
     def _loose_object_path(self, repository: Path, object_id: str) -> Path:
         return repository / ".git" / "objects" / object_id[:2] / object_id[2:]
@@ -320,6 +361,65 @@ class EngineTests(unittest.TestCase):
         bundle = export_evidence_bundle(prospect_result, occurrence)
         specimens = catalogue_occurrences([bundle, json.loads(json.dumps(bundle))])
         self.assertEqual(len(specimens), 1)
+
+    def test_bitcoin_reader_parses_synthetic_headers(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        headers = read_block_headers(fixture.headers_file, network="synthetic", start_height=0)
+        self.assertEqual(len(headers), 3)
+        self.assertEqual(headers[0].bits, "4d00ffff")
+        self.assertEqual(headers[1].previous_block_hash, headers[0].block_hash)
+
+    def test_bitcoin_prospect_yields_one_specimen(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        result = prospect_bitcoin_occurrences(fixture.headers_file, network="synthetic", field="bits", start_height=0)
+        self.assertEqual(result["occurrence_count"], 1)
+
+    def test_bitcoin_assay_verifies_against_declared_scope(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(fixture)
+        result = run_bitcoin_assay(fixture.headers_file, bundle)
+        self.assertEqual(result["status"], ASSAY_VERIFIED)
+
+    def test_bitcoin_assay_is_insufficient_when_header_stream_is_truncated(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(fixture)
+        original_bytes = fixture.headers_file.read_bytes()
+        fixture.headers_file.write_bytes(original_bytes[:-1])
+        result = run_bitcoin_assay(fixture.headers_file, bundle)
+        self.assertEqual(result["status"], ASSAY_INSUFFICIENT_EVIDENCE)
+
+    def test_bitcoin_assay_is_insufficient_when_header_linkage_is_broken(self) -> None:
+        valid_fixture = SyntheticBitcoinFixture(self.root / "valid")
+        valid_fixture.headers_file.parent.mkdir(parents=True, exist_ok=True)
+        valid_fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(valid_fixture)
+
+        broken_fixture = SyntheticBitcoinFixture(self.root / "broken")
+        broken_fixture.headers_file.parent.mkdir(parents=True, exist_ok=True)
+        broken_fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"], broken_link_index=2)
+        result = run_bitcoin_assay(broken_fixture.headers_file, bundle)
+        self.assertEqual(result["status"], ASSAY_INSUFFICIENT_EVIDENCE)
+
+    def test_bitcoin_assay_rejects_tampered_field_binding(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(fixture)
+        tampered = copy.deepcopy(bundle)
+        tampered["specimen"]["field_values"][1] = tampered["specimen"]["field_values"][0]
+        result = run_bitcoin_assay(fixture.headers_file, tampered)
+        self.assertEqual(result["status"], ASSAY_CONTRADICTED)
+
+    def test_catalogue_renders_bitcoin_specimens(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
+        _, bundle = self._bitcoin_bundle_from_fixture(fixture)
+        specimens = catalogue_occurrences([bundle])
+        html_output = render_catalogue_html(specimens)
+        self.assertIn("synthetic bits :: heights 0, 1, 2", html_output)
 
     def test_prospecting_leaves_repository_unchanged(self) -> None:
         fixture = self._fixture_with_states(["A\n", "B\n", "A\n"])
