@@ -271,11 +271,16 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
         return {"status": ASSAY_CONTRADICTED, "reasons": ["declared source field does not match specimen field"]}
     if not isinstance(start_height, int) or start_height < 0:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["missing or invalid start height in declared source"]}
-    if not isinstance(end_height, int) or end_height < start_height:
-        if not (isinstance(header_count, int) and header_count == 0 and end_height == start_height - 1):
+    if not isinstance(header_count, int) or header_count < 0:
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["missing or invalid header count in declared source"]}
+    if header_count == 0:
+        if end_height != start_height - 1:
+            return {"status": ASSAY_CONTRADICTED, "reasons": ["declared empty header scope has an invalid height range"]}
+    else:
+        if not isinstance(end_height, int) or end_height < start_height:
             return {"status": ASSAY_CONTRADICTED, "reasons": ["missing or invalid end height in declared source"]}
-    if not isinstance(header_count, int) or end_height != start_height + header_count - 1:
-        return {"status": ASSAY_CONTRADICTED, "reasons": ["declared source header count does not match the height range"]}
+        if end_height != start_height + header_count - 1:
+            return {"status": ASSAY_CONTRADICTED, "reasons": ["declared source header count does not match the height range"]}
 
     try:
         headers = read_block_headers(headers_file, start_height=start_height)

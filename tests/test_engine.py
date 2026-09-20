@@ -376,6 +376,15 @@ class EngineTests(unittest.TestCase):
         result = prospect_bitcoin_occurrences(fixture.headers_file, network="synthetic", field="bits", start_height=0)
         self.assertEqual(result["occurrence_count"], 1)
 
+    def test_bitcoin_prospect_supports_empty_header_stream(self) -> None:
+        fixture = SyntheticBitcoinFixture(self.root)
+        fixture.headers_file.write_bytes(b"")
+        result = prospect_bitcoin_occurrences(fixture.headers_file, network="synthetic", field="bits", start_height=7)
+        self.assertEqual(result["header_count"], 0)
+        self.assertEqual(result["start_height"], 7)
+        self.assertEqual(result["end_height"], 6)
+        self.assertEqual(result["occurrence_count"], 0)
+
     def test_bitcoin_assay_verifies_against_declared_scope(self) -> None:
         fixture = SyntheticBitcoinFixture(self.root)
         fixture.write_headers(["4d00ffff", "1d00ffff", "4d00ffff"])
