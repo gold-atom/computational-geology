@@ -1,6 +1,6 @@
 {
   "reasons": [
-    "declared field value does not match height binding: 1"
+    "specimen identifier mismatch"
   ],
   "status": "CONTRADICTED"
 }

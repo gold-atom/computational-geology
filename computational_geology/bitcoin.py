@@ -150,15 +150,32 @@ def _compress_header_runs(headers: list[BitcoinHeader], field: str) -> list[Head
 
 
 def _occurrence_from_runs(first: HeaderRun, second: HeaderRun, third: HeaderRun, *, network: str, field: str) -> dict[str, Any]:
-    payload = {
+    payload = _specimen_payload(
+        network=network,
+        field=field,
+        occurrence_heights=[first.start_height, second.start_height, third.start_height],
+        block_hashes=[first.start_block_hash, second.start_block_hash, third.start_block_hash],
+        field_values=[first.value, second.value, third.value],
+    )
+    return {"id": _specimen_id(payload), **payload}
+
+
+def _specimen_payload(
+    *,
+    network: str,
+    field: str,
+    occurrence_heights: list[int],
+    block_hashes: list[str],
+    field_values: list[int | str],
+) -> dict[str, Any]:
+    return {
         "rule": PROFILE_ID,
         "network": network,
         "field": field,
-        "occurrence_heights": [first.start_height, second.start_height, third.start_height],
-        "block_hashes": [first.start_block_hash, second.start_block_hash, third.start_block_hash],
-        "field_values": [first.value, second.value, third.value],
+        "occurrence_heights": occurrence_heights,
+        "block_hashes": block_hashes,
+        "field_values": field_values,
     }
-    return {"id": _specimen_id(payload), **payload}
 
 
 def _prospect_headers(headers: list[BitcoinHeader], *, network: str, field: str, start_height: int) -> dict[str, Any]:
@@ -262,6 +279,15 @@ def run_bitcoin_assay(headers_file: str | Path, bundle: dict[str, Any]) -> dict[
         return {"status": ASSAY_CONTRADICTED, "reasons": ["specimen must bind exactly three occurrence heights and three block hashes"]}
     if len(specimen.get("field_values", [])) != 3:
         return {"status": ASSAY_CONTRADICTED, "reasons": ["specimen must bind exactly three field values"]}
+    expected_payload = _specimen_payload(
+        network=specimen["network"],
+        field=specimen["field"],
+        occurrence_heights=list(specimen["occurrence_heights"]),
+        block_hashes=list(specimen["block_hashes"]),
+        field_values=list(specimen["field_values"]),
+    )
+    if specimen.get("id") != _specimen_id(expected_payload):
+        return {"status": ASSAY_CONTRADICTED, "reasons": ["specimen identifier mismatch"]}
 
     declared_source = bundle.get("declared_source") or {}
     network = declared_source.get("network")
