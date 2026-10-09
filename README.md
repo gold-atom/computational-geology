@@ -6,6 +6,19 @@ This repository is a falsification-first research program, not a protocol specif
 
 > **Research Pass 0 status:** terminology is provisional; constructions are test subjects; no supply, scarcity, ownership, or production-readiness claim is made.
 
+## Two connected tracks
+
+This repository now separates two related research tracks:
+
+1. **Computational geology** asks what persistent, independently assayable formations can be discovered in already-accumulated computational history, and under what adversarial conditions those formations deserve stronger geological language.
+2. **Sedimentary media** asks what artists and software can make from such assayed historical occurrences by translating them into explicit, versioned creative constraints.
+
+The second track does **not** upgrade the scientific status of the first. A film, sound work, image, text, performance, or executable environment may have a reproducible relationship to an assayed occurrence without thereby proving scarcity, manufacture resistance, ownership, or monetary value.
+
+The current executable implementation is still the geological prototype: `prospect`, `assay`, and `catalogue` over the Git state-return profile. The sedimentary-media architecture is presently a **proposal and implementation roadmap**, not a completed renderer or production provenance system.
+
+See [`research/COMPUTATIONAL_GEOLOGY_AND_SEDIMENTARY_MEDIA.md`](research/COMPUTATIONAL_GEOLOGY_AND_SEDIMENTARY_MEDIA.md) for the concept paper and [`research/SEDIMENTARY_MEDIA_ROADMAP.md`](research/SEDIMENTARY_MEDIA_ROADMAP.md) for the first implementation target.
+
 ## The core distinction
 
 | Minting | Geology |
