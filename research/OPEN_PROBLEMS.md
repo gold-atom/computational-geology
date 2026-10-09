@@ -124,6 +124,32 @@ What typed evidence remains valid when archives move, custodians change, formats
 
 Who may approve ore languages, source versions, or deprecated assays, and how can governance avoid retroactively privileging known discoveries?
 
+## Tier 6 — Sedimentary-media questions
+
+### 29. Historically meaningful mappings
+
+Which envelope mappings preserve information from the source occurrence rather than reducing the specimen to an arbitrary seed? Can this be measured by source substitution tests, ablation, or mutual-information-style comparisons?
+
+### 30. Constraint without aesthetic collapse
+
+How much of a work can be inherited from a shared envelope before distinct interpretations converge into superficial variants of the same output? Conversely, how little can be inherited before the historical relationship becomes decorative branding?
+
+### 31. Production-history claims
+
+Which claims can be verified from output constraints and digests alone, and which require trusted instrumentation, reproducible execution, signed provenance, or external attestations? The system must not infer a private workflow from a compliant result.
+
+### 32. Cross-platform reproducibility
+
+For image, sound, animation, and generative-model pipelines, what environment must be pinned for bit-identical or equivalence-class reproduction? How should a derivation record platform, runtime, model, weights, seeds, nondeterminism, and renderer versions?
+
+### 33. Recursive provenance
+
+When a sedimentary work becomes part of a later preserved history, how should the later formation refer to the earlier specimen, envelope, and artwork without collapsing those identities? What constitutes a genuine new occurrence rather than a wrapper around old evidence?
+
+### 34. Plural interpretation
+
+Can multiple artists make recognizably different works from one envelope while retaining a meaningful inspectable relationship to the same historical occurrence? This is an empirical artistic question, not a consensus property.
+
 ## Immediate empirical program
 
 1. Build tiny, fully enumerable formations and differential assay implementations.
@@ -133,6 +159,9 @@ Who may approve ore languages, source versions, or deprecated assays, and how ca
 5. Model a star “region” under every plausible relation and find the smallest divergence example.
 6. Anchor a toy archive root externally, then demonstrate selective omission and data-loss failures.
 7. Run an independent counterexample hunt before designing any rights, token, or economic layer.
+8. Build the first sedimentary-media control from one assayed Git state-return specimen, one versioned envelope, and deterministic image/sound/animation reference renderers.
+9. Falsify the media association with substituted specimens, altered envelopes, noncompliant renders, and changed media bytes.
+10. Invite at least two independent interpretations of the same envelope and compare what remains historically shared versus artistically free.
 
 ## Assumptions requiring independent verification
 
