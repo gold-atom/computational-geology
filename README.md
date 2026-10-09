@@ -93,6 +93,7 @@ GoldAtom/0's public repository describes a verifier-first proof-object prototype
 | [`urbit/ARCHITECTURE.md`](urbit/ARCHITECTURE.md) | Source-grounded facts about relevant Urbit machinery |
 | [`urbit/GEOLOGICAL_PRIMITIVES.md`](urbit/GEOLOGICAL_PRIMITIVES.md) | Urbit-specific candidates, attacks, and experiments |
 | [`bitcoin/ANCHORS.md`](bitcoin/ANCHORS.md) | What Bitcoin anchoring can and cannot establish |
+| [`research/COMPUTATIONAL_GEOLOGY_AND_SEDIMENTARY_MEDIA.md`](research/COMPUTATIONAL_GEOLOGY_AND_SEDIMENTARY_MEDIA.md) | Concept paper on sedimentary media and creative works derived from assayed computational history |
 | [`research/THREAT_MODEL.md`](research/THREAT_MODEL.md) | Adversaries, capabilities, assets, and attack matrix |
 | [`research/FALSIFICATION_CRITERIA.md`](research/FALSIFICATION_CRITERIA.md) | Candidate admission tests and fatal failures |
 | [`research/UNKNOWN_SUPPLY.md`](research/UNKNOWN_SUPPLY.md) | Epistemic and computational meanings of unknown inventory |
