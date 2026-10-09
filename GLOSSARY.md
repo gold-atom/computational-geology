@@ -139,6 +139,42 @@ A rule-system event that changes recognized ownership, control, or custody. Tran
 
 The data required by an assay to demonstrate that a candidate is in the object set. A witness may include source material, inclusion and consistency proofs, signatures, or commitments. Losing a witness can make an object unassayable without making a claim of continued existence independently useful.
 
+## Sedimentary-media terms
+
+These terms describe a proposed creative layer built on top of assayed historical material. They do not change the geological classification of the source.
+
+### Creative envelope
+
+A versioned, inspectable set of production constraints derived from a specific assayed specimen by a declared envelope recipe. An envelope may contain temporal proportions, recurrence, structural relations, bounded seeds, or other parameters. It is distinct from both the historical specimen and the artwork made from it.
+
+### Envelope recipe
+
+A versioned authored procedure that maps stable specimen identity and explicitly assayed historical features into a creative envelope. The recipe is itself a designed cultural artifact; history does not independently decree its mappings. A strong implementation distinguishes historical inputs, authored mappings, and free artistic choices.
+
+### Sedimentary media
+
+Creative works made in a declared relationship to identifiable formations in computational history. The relationship may be reproducible and independently inspectable without implying that the work itself preexisted, is scarce, is manufacture-resistant, or is owned by the specimen discoverer.
+
+### Media association
+
+A verifiable binding between a media digest, a specimen identity, and an envelope or recipe identity. Media association establishes that those identifiers were declared together. It does not by itself prove that the media was actually produced by following the envelope.
+
+### Constraint compliance
+
+Evidence that an output satisfies explicit, independently testable properties required by an envelope—for example duration, recurrence, panel proportions, or a media digest. Constraint compliance does not prove undocumented production history, artistic intent, or that no other process could have created the same output.
+
+### Reproducible derivation
+
+A stronger claim that a pinned procedure, environment, inputs, and versioned envelope regenerate the declared output under stated reproducibility conditions. It must state whether reproduction means bit-identical output, perceptual equivalence, or another explicit equivalence rule.
+
+### Free artistic choice
+
+A production decision deliberately left outside the historical derivation and envelope constraints. Free choices should be recorded separately when a work makes claims about inherited structure so that artistic discretion is not misrepresented as historical necessity.
+
+### Recursive sedimentation
+
+The process by which a work and its publication history become part of a later computational history from which new specimens may eventually be discovered. Recursive sedimentation does not retroactively alter the parent specimen or upgrade weak historical material into manufacture-resistant geology.
+
 ## Source-model terms
 
 ### Endogenous geology
